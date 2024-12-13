@@ -46,6 +46,24 @@ exitnode_country() { local country="$1" file=/etc/tor/torrc
     echo "ExitNodes {$country}" >>$file
 }
 
+### add_bridges: Add bridges to the config
+# Arguments:
+#   bridges) List of bridges, separated by new line
+# Return: Updated configuration file
+add_bridges() { local bridges="$1" file=/etc/tor/torrc
+    sed -i '/^UseBridges/d; /^Bridge/d' $file
+    echo "UseBridges 1" >>$file
+    echo "$bridges" | sed '/^\s*$/d; s/^/Bridge /' >> $file
+}
+
+### extra: Add extra lines
+# Arguments:
+#   text) text to add to config
+# Return: Updated configuration file
+extra() { local text="$1" file=/etc/tor/torrc
+    echo "$text" >> $file
+}
+
 ### hidden_service: setup a hidden service
 # Arguments:
 #   port) port to connect to service
@@ -124,6 +142,7 @@ shift $(( OPTIND - 1 ))
 [[ "${EXITNODE:-""}" ]] && exitnode
 [[ "${LOCATION:-""}" ]] && exitnode_country "$LOCATION"
 [[ "${PASSWORD:-""}" ]] && password "$PASSWORD"
+[[ "${BRIDGES:-""}" ]] && add_bridges "$BRIDGES"
 [[ "${SERVICE:-""}" ]] && eval hidden_service \
             $(sed 's/^/"/; s/$/"/; s/;/" "/g' <<< $SERVICE)
 [[ "${USERID:-""}" =~ ^[0-9]+$ ]] && usermod -u $USERID -o tor
@@ -139,6 +158,8 @@ for env in $(printenv | grep '^TOR_'); do
         echo "$name $val" >>/etc/tor/torrc
     fi
 done
+
+[[ "${TORRC_EXTRA:-""}" ]] && extra "$TORRC_EXTRA"
 
 chown -Rh tor. /etc/tor /var/lib/tor /var/log/tor 2>&1 |
             grep -iv 'Read-only' || :
